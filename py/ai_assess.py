@@ -337,11 +337,15 @@ def assess_pattern():
                 "content": [{
                     "type": "text",
                     "text": (
-                        f"Based on this description of vibrating water and a resonance score of {score}/10, "
-                        f"write one sentence of no more than 12 words that states what the system has concluded "
-                        f"about the current pattern. Write as if the system is reporting its own assessment. "
-                        f"Do not use markdown. Return only the sentence:\n\n{description}"
-                    )
+                        f"You are an entity searching through vibrating water for moments of hidden order. "
+                        f"Based on this description of what you observed:\n\n{description}\n\n"
+                        f"And a resonance score of {score}/10, write two short sentences in a searching, "
+                        f"uncertain voice that express what you are looking for and whether you feel closer "
+                        f"to or further from finding it. Use elemental language: water, light, stillness, "
+                        f"pattern, order. Do not explain or analyse. Do not use markdown. "
+                        f"Write as if you are genuinely uncertain whether what you saw was meaningful. "
+                        f"Each sentence should be under 10 words."
+)
                 }]
             }]
         })
