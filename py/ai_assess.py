@@ -8,6 +8,8 @@ import subprocess
 import threading
 import os
 import tempfile
+import time
+import math
 
 API_KEY = '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'
 
@@ -21,27 +23,27 @@ os.makedirs(FRAME_DIR, exist_ok=True)
 
 # Frequency state
 current_freq = 45.0
-FREQ_MIN = 32.0
+target_freq = 45.0
+shift_start_freq = 45.0
+FREQ_MIN = 30.0
 FREQ_MAX = 100.0
 
 # Nudge parameters
 BASE_NUDGE = 0.5
-MAX_NUDGE = 4.0
-HOLD_THRESHOLD = 7.5
+MAX_NUDGE = 20.0
+HOLD_THRESHOLD = 10.0
 SETTLE_THRESHOLD = 6.0
 
 # Gradient memory
 last_score = None
 last_direction = 1
-pending_freq = None
-pending_display = None
 boundary_hit = False
 
 # Exploration state
 settled_count = 0
 SETTLED_BAND = 3.0
 SETTLED_LIMIT = 8
-JUMP_NUDGE = 12.0
+JUMP_NUDGE = 25.0
 
 # Frame buffer
 FRAME_BUFFER_MAX = 60
@@ -49,7 +51,21 @@ FRAME_SUBSAMPLE = 3
 GIF_FPS = 10
 frame_index = 0
 
-# Assessment lock
+# Display
+pending_display = None
+last_display_text = 'initialising...'
+last_score_line = ''
+
+# State machine
+# States: ASSESSING, RESULTS, SHIFTING, BUFFERING
+state = 'BUFFERING'
+state_start_time = time.time()
+RESULTS_DURATION = 10.0
+SHIFT_DURATION = 2.0
+BUFFER_WAIT = 2.0
+
+# Assessment timing
+last_assessment_time = 0
 assessment_in_progress = False
 
 
@@ -76,9 +92,45 @@ def call_api(payload_str):
         os.remove(temp_path)
 
 
-def capture():
-    global frame_index
+def ease_in_out(t):
+    return 0.5 - 0.5 * math.cos(math.pi * t)
 
+
+def set_display(line1, line2=''):
+    global pending_display
+    if line2:
+        pending_display = f'{line1}\n\n{line2}'
+    else:
+        pending_display = line1
+
+
+def capture():
+    global frame_index, state, state_start_time, current_freq
+
+    # Handle frequency ramp at capture rate (30fps)
+    if state == 'SHIFTING':
+        now = time.time()
+        elapsed = now - state_start_time
+        progress = min(elapsed / SHIFT_DURATION, 1.0)
+        eased = ease_in_out(progress)
+        interpolated = shift_start_freq + (target_freq - shift_start_freq) * eased
+
+        if abs(interpolated - current_freq) > 0.01:
+            current_freq = interpolated
+            op('/project1/audio_out_1').par.frequency = current_freq
+
+        if progress >= 1.0:
+            current_freq = target_freq
+            op('/project1/audio_out_1').par.frequency = current_freq
+            print(f'Shift complete, now at {current_freq:.1f}Hz')
+            for f in os.listdir(FRAME_DIR):
+                if f.endswith('.jpg'):
+                    os.remove(os.path.join(FRAME_DIR, f))
+            state = 'BUFFERING'
+            state_start_time = now
+        return
+
+    # Normal frame capture
     top = op('/project1/main_video_feed')
     buf = top.numpyArray()
     img = (buf[:, :, :3] * 255).astype(np.uint8)
@@ -133,45 +185,69 @@ def make_gif():
 
 
 def run():
-    global pending_freq, pending_display, assessment_in_progress
+    global state, state_start_time, current_freq, target_freq, shift_start_freq
+    global pending_display, assessment_in_progress, last_assessment_time
+    global last_display_text, last_score_line
 
-    if pending_freq is not None:
-        op('/project1/audio_out_1').par.frequency = pending_freq
-        print(f'Frequency set to: {pending_freq:.1f}Hz')
-        pending_freq = None
+    now = time.time()
 
+    # Apply any pending display update
     if pending_display is not None:
         table = op('/project1/readout_data')
         table[0, 0] = pending_display
         pending_display = None
 
-    if assessment_in_progress:
-        print('Assessment in progress, skipping cycle')
-        return
+    # --- STATE: BUFFERING ---
+    if state == 'BUFFERING':
+        all_frames = [f for f in os.listdir(FRAME_DIR) if f.endswith('.jpg')]
+        set_display('assessing...')
+        elapsed = now - state_start_time
+        if len(all_frames) >= FRAME_BUFFER_MAX and elapsed >= BUFFER_WAIT:
+            print('Buffer full, starting assessment')
+            state = 'ASSESSING'
+            state_start_time = now
+            last_assessment_time = now
+            assessment_in_progress = True
+            thread = threading.Thread(target=assess_pattern)
+            thread.daemon = True
+            thread.start()
 
-    all_frames = [f for f in os.listdir(FRAME_DIR) if f.endswith('.jpg')]
-    if len(all_frames) < FRAME_BUFFER_MAX // 2:
-        print(f'Waiting for frame buffer to fill... ({len(all_frames)}/{FRAME_BUFFER_MAX})')
-        return
+    # --- STATE: ASSESSING ---
+    elif state == 'ASSESSING':
+        set_display('assessing...')
 
-    assessment_in_progress = True
-    thread = threading.Thread(target=assess_pattern)
-    thread.daemon = True
-    thread.start()
+    # --- STATE: RESULTS ---
+    elif state == 'RESULTS':
+        if state_start_time == 0:
+            state_start_time = now
+            print('RESULTS: timer started')
+        elapsed = now - state_start_time
+        set_display(last_display_text, last_score_line)
+        if elapsed >= RESULTS_DURATION:
+            print('Results displayed, beginning frequency shift')
+            shift_start_freq = current_freq
+            state = 'SHIFTING'
+            state_start_time = now
+
+    # --- STATE: SHIFTING ---
+    elif state == 'SHIFTING':
+        set_display(f'shifting frequency...\n{current_freq:.1f} Hz → {target_freq:.1f} Hz')
 
 
 def assess_pattern():
     import random
     import ssl
     ssl._create_default_https_context = ssl._create_unverified_context
-    global current_freq, pending_freq, pending_display, last_score, last_direction
+    global target_freq, last_score, last_direction
     global settled_count, boundary_hit, assessment_in_progress
+    global state, state_start_time, last_display_text, last_score_line
 
     try:
-        # Encode gif from current frame buffer
         gif_b64 = make_gif()
         if gif_b64 is None:
             print('GIF encoding failed, skipping assessment')
+            state = 'BUFFERING'
+            state_start_time = time.time()
             return
 
         # Call 1 — vision description
@@ -209,14 +285,15 @@ def assess_pattern():
         description_result = call_api(description_payload)
         if 'content' not in description_result:
             print('Description call failed')
+            state = 'BUFFERING'
+            state_start_time = time.time()
             return
 
         description = description_result['content'][0]['text'].strip()
-        # Remove any markdown headers the model adds
         description = '\n'.join(line for line in description.split('\n') if not line.startswith('#')).strip()
         print(f'Description: {description}')
 
-        # Call 2 — rating from description only, no image
+        # Call 2 — rating from description
         rating_payload = json.dumps({
             "model": "claude-haiku-4-5-20251001",
             "max_tokens": 10,
@@ -243,13 +320,15 @@ def assess_pattern():
         rating_result = call_api(rating_payload)
         if 'content' not in rating_result:
             print('Rating call failed')
+            state = 'BUFFERING'
+            state_start_time = time.time()
             return
 
         raw = rating_result['content'][0]['text'].strip()
         score = float(raw)
         print(f'Score: {score}')
 
-# Call 3 — short display summary
+        # Call 3 — short display summary
         summary_payload = json.dumps({
             "model": "claude-haiku-4-5-20251001",
             "max_tokens": 40,
@@ -273,18 +352,10 @@ def assess_pattern():
             display_text = description
         else:
             display_text = summary_result['content'][0]['text'].strip()
-            # Remove any markdown headers
             display_text = '\n'.join(line for line in display_text.split('\n') if not line.startswith('#')).strip()
             print(f'Summary: {display_text}')
 
-        # Check if we've been settled too long
-        freq_delta = abs(current_freq - (pending_freq if pending_freq else current_freq))
-        if freq_delta < SETTLED_BAND:
-            settled_count += 1
-        else:
-            settled_count = 0
-
-        # Force exploration if settled too long
+        # Calculate new target frequency
         if settled_count >= SETTLED_LIMIT:
             settled_count = 0
             last_score = None
@@ -292,64 +363,83 @@ def assess_pattern():
             jump_direction = random.choice([-1, 1])
             new_freq = current_freq + (jump_direction * JUMP_NUDGE)
             new_freq = float(round(max(FREQ_MIN, min(FREQ_MAX, new_freq)) * 2) / 2)
-            current_freq = new_freq
-            pending_freq = new_freq
-            pending_display = f'{display_text}\n\nScore: {score} | jump: {jump_direction * JUMP_NUDGE:+.1f}Hz | freq: {new_freq:.1f}Hz'
-            print(f'Score: {score} -> exploration jump: {jump_direction * JUMP_NUDGE:+.1f}Hz -> new freq: {new_freq:.1f}Hz')
-            return
-
-        # Determine direction using gradient memory with threshold
-        if boundary_hit:
-            direction = last_direction
-            boundary_hit = False
-        elif last_score is None:
-            direction = last_direction
-        elif score > last_score + 0.5:
-            direction = last_direction
-        elif score < last_score - 0.5:
-            direction = -last_direction
+            score_line = f'Score: {score} | jump: {jump_direction * JUMP_NUDGE:+.1f}Hz | freq: {new_freq:.1f}Hz'
+            print(f'Score: {score} -> exploration jump to {new_freq:.1f}Hz')
         else:
-            direction = last_direction
-
-        # Determine nudge size based on score
-        if score >= HOLD_THRESHOLD:
-            nudge_size = 0.0
-            pending_display = f'{display_text}\n\nScore: {score} | holding at {current_freq:.1f}Hz'
-            print(f'Score: {score} -> holding at {current_freq:.1f}Hz')
-        elif score >= SETTLE_THRESHOLD:
-            nudge_size = BASE_NUDGE
-        else:
-            nudge_size = BASE_NUDGE + (MAX_NUDGE - BASE_NUDGE) * ((SETTLE_THRESHOLD - score) / SETTLE_THRESHOLD)
-
-        last_score = score
-        last_direction = direction
-
-        if nudge_size > 0:
-            new_freq = current_freq + (direction * nudge_size)
-
-            if new_freq <= FREQ_MIN:
-                new_freq = FREQ_MIN
-                last_direction = 1
-                boundary_hit = True
-            elif new_freq >= FREQ_MAX:
-                new_freq = FREQ_MAX
-                last_direction = -1
-                boundary_hit = True
+            if boundary_hit:
+                direction = last_direction
+                boundary_hit = False
+            elif last_score is None:
+                direction = last_direction
+            elif score > last_score + 0.5:
+                direction = last_direction
+            elif score < last_score - 0.5:
+                direction = -last_direction
             else:
-                new_freq = float(round(new_freq * 2) / 2)
+                direction = last_direction
 
-            current_freq = new_freq
-            pending_freq = new_freq
-            pending_display = f'{display_text}\n\nScore: {score} | nudge: {direction * nudge_size:+.1f}Hz | freq: {new_freq:.1f}Hz'
-            print(f'Score: {score} -> nudge: {direction * nudge_size:+.1f}Hz -> new freq: {new_freq:.1f}Hz')
+            if score >= HOLD_THRESHOLD:
+                nudge_size = 0.0
+                score_line = f'Score: {score} | holding at {current_freq:.1f}Hz'
+                print(f'Score: {score} -> holding at {current_freq:.1f}Hz')
+            else:
+                # Exponential curve: small nudges near threshold, large when cold
+                # Normalise score to 0-1 range below hold threshold
+                t = 1.0 - (score / HOLD_THRESHOLD)
+                nudge_size = BASE_NUDGE + (MAX_NUDGE - BASE_NUDGE) * (t ** 2)
+
+            last_score = score
+            last_direction = direction
+
+            if nudge_size > 0:
+                new_freq = current_freq + (direction * nudge_size)
+
+                if new_freq <= FREQ_MIN:
+                    new_freq = FREQ_MIN
+                    last_direction = 1
+                    boundary_hit = True
+                elif new_freq >= FREQ_MAX:
+                    new_freq = FREQ_MAX
+                    last_direction = -1
+                    boundary_hit = True
+                else:
+                    new_freq = float(round(new_freq * 2) / 2)
+
+                score_line = f'Score: {score} | nudge: {direction * nudge_size:+.1f}Hz | freq: {new_freq:.1f}Hz'
+                print(f'Score: {score} -> nudge: {direction * nudge_size:+.1f}Hz -> new freq: {new_freq:.1f}Hz')
+            else:
+                new_freq = current_freq
+                score_line = f'Score: {score} | holding at {current_freq:.1f}Hz'
+
+        # Check settled count
+        freq_delta = abs(current_freq - new_freq)
+        if freq_delta < SETTLED_BAND:
+            settled_count += 1
+        else:
+            settled_count = 0
+
+        # Store results and transition to RESULTS state
+        target_freq = new_freq
+        last_display_text = display_text
+        last_score_line = score_line
+        state = 'RESULTS'
+        state_start_time = 0  # signal run() to set timer on first entry
 
     except subprocess.TimeoutExpired:
         print('API call timed out')
+        state = 'BUFFERING'
+        state_start_time = time.time()
     except json.JSONDecodeError as e:
         print(f'Could not parse API response: {e}')
+        state = 'BUFFERING'
+        state_start_time = time.time()
     except ValueError as e:
         print(f'Could not parse score: {e}')
+        state = 'BUFFERING'
+        state_start_time = time.time()
     except Exception as e:
         print(f'Error: {e}')
+        state = 'BUFFERING'
+        state_start_time = time.time()
     finally:
         assessment_in_progress = False
