@@ -11,20 +11,20 @@ import tempfile
 import time
 import math
 
-API_KEY = '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'
+API_KEY = 'YOUR-KEY-HERE'
 
 # Paths
-FRAME_DIR = '/Users/pc_mbp14/CODE/MA/Term_02/Final_Project/cymatics_frames'
-GIF_PATH = '/Users/pc_mbp14/CODE/MA/Term_02/Final_Project/cymatics.gif'
-GIF_SCRIPT = '/Users/pc_mbp14/CODE/MA/Term_02/Final_Project/py/make_gif.py'
+FRAME_DIR = '/Users/pc_mbp14/CODE/MA/Term 02/Final Project/Touch Designer/cymatics_frames'
+GIF_PATH = '/Users/pc_mbp14/CODE/MA/Term 02/Final Project/Touch Designer/cymatics.gif'
+GIF_SCRIPT = '/Users/pc_mbp14/CODE/MA/Term 02/Final Project/Touch Designer/py/make_gif.py'
 
 # Ensure frame directory exists
 os.makedirs(FRAME_DIR, exist_ok=True)
 
 # Frequency state
-current_freq = 45.0
-target_freq = 45.0
-shift_start_freq = 45.0
+current_freq = 65.0
+target_freq = 85.0
+shift_start_freq = 65.0
 FREQ_MIN = 30.0
 FREQ_MAX = 100.0
 
@@ -336,16 +336,32 @@ def assess_pattern():
                 "role": "user",
                 "content": [{
                     "type": "text",
+                    # "text": (
+                    #     f"Based on this description of vibrating water and a resonance score of {score}/10, "
+                    #     f"write one sentence of no more than 12 words that states what the system has concluded "
+                    #     f"about the current pattern. Write as if the system is reporting its own assessment. "
+                    #     f"Do not use markdown. Return only the sentence:\n\n{description}"
+                    # )
+#                     "text": (
+#                         f"You are an entity searching through vibrating water for moments of hidden order. "
+#                         f"Based on this description of what you observed:\n\n{description}\n\n"
+#                         f"And a resonance score of {score}/10, write two short sentences in a searching, "
+#                         f"uncertain voice that express what you are looking for and whether you feel closer "
+#                         f"to or further from finding it. Use elemental language: water, light, stillness, "
+#                         f"pattern, order. Do not explain or analyse. Do not use markdown. "
+#                         f"Write as if you are genuinely uncertain whether what you saw was meaningful. "
+#                         f"Each sentence should be under 10 words."
+#                     )
                     "text": (
-                        f"You are an entity searching through vibrating water for moments of hidden order. "
-                        f"Based on this description of what you observed:\n\n{description}\n\n"
-                        f"And a resonance score of {score}/10, write two short sentences in a searching, "
-                        f"uncertain voice that express what you are looking for and whether you feel closer "
-                        f"to or further from finding it. Use elemental language: water, light, stillness, "
-                        f"pattern, order. Do not explain or analyse. Do not use markdown. "
-                        f"Write as if you are genuinely uncertain whether what you saw was meaningful. "
-                        f"Each sentence should be under 10 words."
-)
+                        f"Resonance score: {score}/10.\n\n"
+                        f"What was observed: {description}\n\n"
+                        f"Write two short sentences, each under 8 words. "
+                        f"You are searching for order in water and light. "
+                        f"Respond poetically and obliquely — suggest rather than describe. "
+                        f"Let the score guide your feeling of closeness or distance from what you seek. "
+                        f"Write both sentences on the same line with no line breaks between them. "
+                        f"No markdown."
+                    )
                 }]
             }]
         })
@@ -358,6 +374,9 @@ def assess_pattern():
             display_text = summary_result['content'][0]['text'].strip()
             display_text = '\n'.join(line for line in display_text.split('\n') if not line.startswith('#')).strip()
             print(f'Summary: {display_text}')
+
+            # TEMP: comment out to restore poetic display
+            # display_text = ''
 
         # Calculate new target frequency
         if settled_count >= SETTLED_LIMIT:
