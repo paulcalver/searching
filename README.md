@@ -5,8 +5,8 @@ A cymatics installation in which an AI watches vibrating water and searches alou
 Final project, MA Computational Arts, Goldsmiths. By Paul Calver.
 
 - Video: https://vimeo.com/1182923519
-- Written documentation: `docs/Searching_Paul_Calver.pdf`
-- Pipeline diagram: `docs/searching_system_pipeline.png`
+
+<img width="1920" height="1080" alt="searching - 03 copy" src="https://github.com/user-attachments/assets/07018fec-6088-4454-9727-36425555309c" />
 
 ## Requirements
 
@@ -35,7 +35,7 @@ Install packages into TD's Python:
 ├── searching.toe
 ├── td_screenshots/        Commented screenshots of the TD network
 ├── py/
-│   ├── ai_assess.py       State machine, 3-call API pipeline, frequency control
+│   ├── ai_assess_git.py       State machine, 3-call API pipeline, frequency control
 │   └── make_gif.py        GIF encoder (subprocess to avoid TD SSL issues)
 ├── arduino/               HC-SR04 sketch, developed but not used in final piece
 ├── docs/                  Written documentation and pipeline diagram
@@ -44,8 +44,9 @@ Install packages into TD's Python:
 
 ## Credits
 
-Blob tracking trialled early in development followed [Bileam Tschepe, TouchDesigner Tutorial 76](https://youtu.be/D5N1R5CVMkc). None of it remains in the final pipeline.
+Paul Calver, 2026
+pcalv001@gold.ac.uk
 
-Anthropic's Claude (Opus 4.7) was used throughout development as a coding and writing assistant. All design decisions and final code were reviewed and edited by the author.
+Anthropic's Claude (Opus 4.7) was used throughout development as a coding assistant. All design decisions and final code were reviewed and edited by the author.
 
-**The committed `ai_assess.py` has no API key. Add your own before running.**
+**The committed `ai_assess_git.py` has no API key. Add your own before running.**
