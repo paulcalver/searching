@@ -11,12 +11,13 @@ import tempfile
 import time
 import math
 
-API_KEY = 'YOUR-KEY-HERE'
+API_KEY = os.environ.get('ANTHROPIC_API_KEY', 'YOUR-KEY-HERE')
 
-# Paths
-FRAME_DIR = '/Users/pc_mbp14/CODE/MA/Term 02/Final Project/Touch Designer/cymatics_frames'
-GIF_PATH = '/Users/pc_mbp14/CODE/MA/Term 02/Final Project/Touch Designer/cymatics.gif'
-GIF_SCRIPT = '/Users/pc_mbp14/CODE/MA/Term 02/Final Project/Touch Designer/py/make_gif.py'
+# Paths — replace with the absolute path to this project folder on your machine
+PROJECT_DIR = '/path/to/Touch Designer'
+FRAME_DIR = f'{PROJECT_DIR}/cymatics_frames'
+GIF_PATH = f'{PROJECT_DIR}/cymatics.gif'
+GIF_SCRIPT = f'{PROJECT_DIR}/py/make_gif.py'
 
 # Ensure frame directory exists
 os.makedirs(FRAME_DIR, exist_ok=True)
