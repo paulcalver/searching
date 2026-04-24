@@ -13,7 +13,9 @@ Video: https://vimeo.com/1182923519
 - TouchDesigner 2023+
 - Python packages in TD's bundled Python: `opencv-python`, `Pillow`
 - Anthropic API key (model: `claude-haiku-4-5-20251001`)
-- Sony A7R V + 90mm macro, LED ring light, 3" 4Ω driver, PAM8406 amp, 15cm perspex cube, petri dish (10–20% glycerine/water), MDF plinth
+- Sony A7R V + 90mm macro, LED ring light, 3" 4Ω driver, PAM8406 amp, 15cm perspex cube, petri dish (10–20% glycerine/water).
+- MDF plinth
+- 1080p Projector
 
 Install packages into TD's Python:
 
