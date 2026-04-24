@@ -31,18 +31,6 @@ Install packages into TD's Python:
 4. Select the Sony A7R V in the Video Device In TOP.
 5. Start the capture timer. The loop runs autonomously.
 
-## Structure
-
-```
-├── searching.toe
-├── td_screenshots/        Commented screenshots of the TD network
-├── py/
-│   ├── ai_assess_git.py       State machine, 3-call API pipeline, frequency control
-│   └── make_gif.py        GIF encoder (subprocess to avoid TD SSL issues)
-├── arduino/               HC-SR04 sketch, developed but not used in final piece
-├── docs/                  Written documentation and pipeline diagram
-└── README.md
-```
 
 ## Credits
 
