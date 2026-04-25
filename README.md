@@ -7,6 +7,7 @@ Final project, MA Computational Arts, Goldsmiths. By Paul Calver.
 Video: https://vimeo.com/1182923519
 
 <img width="1920" height="1080" alt="searching preview" src="images/searching_01.jpg" />
+<img width="1920" height="1080" alt="searching preview" src="images/searching_03.jpg" />
 
 ## Requirements
 
