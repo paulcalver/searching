@@ -11,12 +11,14 @@ Video: https://vimeo.com/1182923519
 
 ## Requirements
 
-- TouchDesigner 2023+
+- TouchDesigner 2023+ (Tested and working well running on 2025 M4 Max MacBook Pro)
 - Python packages in TD's bundled Python: `opencv-python`, `Pillow`
 - Anthropic API key (model: `claude-haiku-4-5-20251001`)
 - Sony A7R V + 90mm macro, LED ring light, 3" 4Ω driver, PAM8406 amp, 15cm perspex cube, petri dish (10–20% glycerine/water).
 - MDF plinth
 - 1080p Projector
+
+For full installation plans please contact me on pcalv001@gold.ac.uk
 
 Install packages into TD's Python:
 
